@@ -1,0 +1,19 @@
+"use client";
+import * as XLSX from "xlsx";
+
+export default function ExportExcel({
+  data, filename = "export",
+}: { data: Record<string, unknown>[]; filename?: string }) {
+  const exportXlsx = () => {
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+  };
+  return (
+    <button onClick={exportXlsx}
+      className="rounded-lg bg-green-600 text-white px-4 py-2 text-sm hover:bg-green-700">
+      📊 Excel
+    </button>
+  );
+}

@@ -1,0 +1,103 @@
+"use client";
+import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { GoogleMap, MarkerF, LoadScript } from "@react-google-maps/api";
+import DataTable, { Column } from "@/components/ui/DataTable";
+
+interface Stats { todaySales: number; profit: number; invoices: number; lowStock: number; }
+interface ChartPoint { date: string; sales: number; }
+interface BranchLoc { id: string; name: string; lat: number | null; lng: number | null; }
+interface ExpiryAlert { id: string; name: string; expiryDate: string; quantity: number; }
+interface LastInvoice { id: string; number: string; total: number; createdAt: string; customerName?: string; }
+
+export default function DashboardPage() {
+  const t = useTranslations("dash");
+  const [stats, setStats] = useState<Stats>({ todaySales: 0, profit: 0, invoices: 0, lowStock: 0 });
+  const [chart, setChart] = useState<ChartPoint[]>([]);
+  const [branches, setBranches] = useState<BranchLoc[]>([]);
+  const [alerts, setAlerts] = useState<ExpiryAlert[]>([]);
+  const [invoices, setInvoices] = useState<LastInvoice[]>([]);
+
+  useEffect(() => {
+    fetch("/api/dashboard").then((r) => r.json()).then((d) => {
+      setStats(d.stats); setChart(d.chart); setBranches(d.branches);
+      setAlerts(d.alerts); setInvoices(d.invoices);
+    });
+  }, []);
+
+  const invCols: Column<LastInvoice>[] = [
+    { key: "number", label: t("invoiceNo") },
+    { key: "customerName", label: t("customer") },
+    { key: "total", label: t("total"), render: (r) => `${r.total.toFixed(2)} SDG` },
+    { key: "createdAt", label: t("date"), render: (r) => new Date(r.createdAt).toLocaleDateString() },
+  ];
+
+  return (
+    <div className="space-y-6 p-6">
+      {/* كروت الإحصائيات */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          { label: t("todaySales"), value: stats.todaySales.toFixed(0), icon: "💰", color: "bg-blue-500" },
+          { label: t("profit"), value: stats.profit.toFixed(0), icon: "📈", color: "bg-green-500" },
+          { label: t("invoices"), value: stats.invoices, icon: "🧾", color: "bg-purple-500" },
+          { label: t("lowStock"), value: stats.lowStock, icon: "⚠️", color: "bg-red-500" },
+        ].map((c) => (
+          <div key={c.label} className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+            <div className={`inline-flex h-10 w-10 items-center justify-center rounded-lg ${c.color} text-white text-xl mb-2`}>{c.icon}</div>
+            <p className="text-sm text-gray-500">{c.label}</p>
+            <p className="text-2xl font-bold">{c.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* رسم بياني */}
+      <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+        <h2 className="font-bold mb-4">📊 {t("chart30")}</h2>
+        <ResponsiveContainer width="100%" height={280}>
+          <LineChart data={chart}>
+            <XAxis dataKey="date" fontSize={11} />
+            <YAxis />
+            <Tooltip />
+            <Line type="monotone" dataKey="sales" stroke="#2563eb" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+
+      <div className="grid lg:grid-cols-2 gap-6">
+        {/* آخر الفواتير */}
+        <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+          <h2 className="font-bold mb-4">🧾 {t("lastInvoices")}</h2>
+          <DataTable columns={invCols} rows={invoices} filename="last_invoices" />
+        </div>
+
+        {/* تنبيهات الانتهاء */}
+        <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+          <h2 className="font-bold mb-4">⏰ {t("expiryAlerts")}</h2>
+          <ul className="space-y-2">
+            {alerts.map((a) => (
+              <li key={a.id} className="flex justify-between rounded-lg bg-red-50 dark:bg-red-950 p-3 text-sm">
+                <span>{a.name} ({a.quantity})</span>
+                <span className="text-red-600 font-semibold">{new Date(a.expiryDate).toLocaleDateString()}</span>
+              </li>
+            ))}
+            {alerts.length === 0 && <p className="text-gray-400 text-sm">✅ {t("noAlerts")}</p>}
+          </ul>
+        </div>
+      </div>
+
+      {/* خريطة الفروع */}
+      <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+        <h2 className="font-bold mb-4">📍 {t("branchesMap")}</h2>
+        <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+          <GoogleMap mapContainerStyle={{ width: "100%", height: 350 }}
+            center={{ lat: 15.5, lng: 32.55 }} zoom={7}>
+            {branches.filter((b) => b.lat && b.lng).map((b) => (
+              <MarkerF key={b.id} position={{ lat: b.lat!, lng: b.lng! }} title={b.name} />
+            ))}
+          </GoogleMap>
+        </LoadScript>
+      </div>
+    </div>
+  );
+}

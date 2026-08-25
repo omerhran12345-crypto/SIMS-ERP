@@ -1,0 +1,96 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import DataTable, { Column } from "@/components/ui/DataTable";
+import ExportExcel from "@/components/ui/ExportExcel";
+import PrintButton from "@/components/PrintButton";
+import { postAdjustmentEntry } from "@/lib/accounting-client"; // انظر أدناه
+
+type CountType = "SPOT" | "FULL" | "PARTIAL";
+interface Row { id: string; name: string; systemQty: number; countedQty: number | null; diff: number; purchasePrice: number; }
+
+export default function InventoryPage() {
+  const t = useTranslations("inventory");
+  const [tab, setTab] = useState<CountType>("SPOT");
+  const [rows, setRows] = useState<Row[]>([]);
+  const [barcodeInput, setBarcodeInput] = useState("");
+  const scanRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch("/api/products?all=1").then((r) => r.json())
+      .then((ps: any[]) => setRows(ps.map((p) => ({ id: p.id, name: p.name, systemQty: p.quantity, countedQty: null, diff: 0, purchasePrice: p.purchasePrice }))));
+  }, []);
+
+  function onScan(e: React.FormEvent) {
+    e.preventDefault();
+    const row = rows.find((r) => r.name === barcodeInput.trim());
+    if (row) setRows((rs) => rs.map((r) => r.id === row.id ? { ...r, countedQty: r.systemQty } : r));
+    setBarcodeInput("");
+    scanRef.current?.focus();
+  }
+
+  function setCounted(id: string, val: string) {
+    const v = val === "" ? null : parseInt(val);
+    setRows((rs) => rs.map((r) => r.id === id ? { ...r, countedQty: v, diff: v === null ? 0 : v - r.systemQty } : r));
+  }
+
+  async function settle() {
+    const counted = rows.filter((r) => r.countedQty !== null && r.diff !== 0);
+    for (const r of counted) {
+      const value = r.diff * r.purchasePrice;
+      await postAdjustmentEntry(value);
+      await fetch("/api/inventory/settle", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productId: r.id, diff: r.diff }),
+      });
+    }
+    alert(`✅ تمت تسوية ${counted.length} منتج`);
+    setRows((rs) => rs.map((r) => ({ ...r, countedQty: null, diff: 0 })));
+  }
+
+  const cols: Column<Row>[] = [
+    { key: "name", label: t("product") },
+    { key: "systemQty", label: t("systemQty") },
+    { key: "countedQty", label: t("countedQty"), render: (r) => (
+      <input type="number" value={r.countedQty ?? ""} onChange={(e) => setCounted(r.id, e.target.value)}
+        className="w-20 rounded border p-1 dark:bg-gray-800 dark:border-gray-700" />
+    )},
+    { key: "diff", label: t("diff"), render: (r) => (
+      <span className={r.diff < 0 ? "text-red-600 font-bold" : r.diff > 0 ? "text-green-600 font-bold" : ""}>{r.diff}</span>
+    )},
+  ];
+
+  const TABS: { k: CountType; label: string }[] = [
+    { k: "SPOT", label: t("spot") }, { k: "FULL", label: t("full") }, { k: "PARTIAL", label: t("partial") },
+  ];
+
+  return (
+    <div className="space-y-4 p-6">
+      <div className="flex gap-2">
+        {TABS.map((x) => (
+          <button key={x.k} onClick={() => setTab(x.k)}
+            className={`rounded-lg px-4 py-2 text-sm font-bold ${tab === x.k ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800"}`}>
+            {x.label}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={onScan} className="flex gap-2">
+        <input ref={scanRef} dir="ltr" autoFocus value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)}
+          placeholder="📷 امسح الباركود أو اكتب اسم المنتج..."
+          className="flex-1 rounded-lg border p-3 dark:bg-gray-800 dark:border-gray-700" />
+        <button className="rounded-lg bg-blue-600 text-white px-6">➕</button>
+      </form>
+
+      <DataTable columns={cols} rows={rows} filename={`inventory_${tab}`} />
+
+      <div className="flex gap-2 justify-end">
+        <ExportExcel data={rows} filename={`inventory_${tab}`} />
+        <PrintButton />
+        <button onClick={settle} className="rounded-lg bg-green-600 text-white px-6 py-2 font-bold hover:bg-green-700">
+          ⚖️ {t("settle")}
+        </button>
+      </div>
+    </div>
+  );
+}

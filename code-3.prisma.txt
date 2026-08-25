@@ -1,0 +1,392 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  admin
+  branch_manager
+  cashier
+  accountant
+}
+
+enum Sector {
+  PHARMACY
+  SUPERMARKET
+  FACTORY
+  FURNITURE
+  HARDWARE
+  CLOTHING
+}
+
+enum KycStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  CREDIT
+}
+
+enum StockMoveType {
+  IN
+  OUT
+  ADJUST
+  TRANSFER
+}
+
+enum DeliveryStatus {
+  PENDING
+  ASSIGNED
+  PICKED_UP
+  DELIVERED
+  CANCELLED
+}
+
+enum InventoryType {
+  FULL
+  PARTIAL
+  SPOT
+}
+
+model User {
+  id            String    @id @default(cuid())
+  fullName      String
+  companyName   String
+  country       String
+  phone         String    @unique
+  email         String    @unique
+  password      String
+  role          Role      @default(admin)
+  sector        Sector?
+  avatarUrl     String?
+  licenseUrl    String?
+  otpCode       String?
+  otpExpiresAt  DateTime?
+  kycStatus     KycStatus @default(PENDING)
+  companyId     String?
+  company       Company?  @relation(fields: [companyId], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  kycRequests KycRequest[]
+  activityLogs ActivityLog[]
+
+  @@map("users")
+}
+
+model Company {
+  id        String  @id @default(cuid())
+  name      String
+  sector    Sector
+  taxNumber String?
+  logoUrl   String?
+  users     User[]
+  branches  Branch[]
+  products  Product[]
+  invoices  Invoice[]
+  partners  CompanyPartner[] @relation("companyA")
+  partnerOf CompanyPartner[] @relation("companyB")
+
+  @@map("companies")
+}
+
+model CompanyPartner {
+  id            String   @id @default(cuid())
+  companyAId    String
+  companyBId    String
+  status        String   @default("PENDING") // PENDING | ACCEPTED | REJECTED
+  companyA      Company  @relation("companyA", fields: [companyAId], references: [id])
+  companyB      Company  @relation("companyB", fields: [companyBId], references: [id])
+  createdAt     DateTime @default(now())
+
+  @@unique([companyAId, companyBId])
+  @@map("company_partners")
+}
+
+model PartnerStockRequest {
+  id           String   @id @default(cuid())
+  fromCompanyId String
+  toCompanyId  String
+  productId    String
+  quantity     Int
+  status       String   @default("PENDING")
+  createdAt    DateTime @default(now())
+
+  @@map("partner_stock_requests")
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  city      String
+  state     String?
+  lat       Float?
+  lng       Float?
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  products  Product[]
+  invoices  Invoice[]
+
+  @@map("branches")
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  name           String
+  category       String
+  barcode        String   @unique
+  blockchainHash String
+  purchasePrice  Float
+  salePrice      Float
+  quantity       Int      @default(0)
+  expiryDate     DateTime
+  imageUrl       String?
+  branchId       String
+  branch         Branch   @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  stockMoves     StockMove[]
+  invoiceLines   InvoiceLine[]
+  qualityChecks  QualityCheck[]
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([name])
+  @@map("products")
+}
+
+model StockMove {
+  id          String        @id @default(cuid())
+  type        StockMoveType
+  quantity    Int
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  reference   String?
+  note        String?
+  userId      String?
+  createdAt   DateTime      @default(now())
+
+  @@map("stock_moves")
+}
+
+model Invoice {
+  id            String        @id @default(cuid())
+  number        String        @unique
+  customerName  String?
+  customerPhone String?
+  subtotal      Float
+  tax           Float         @default(0)
+  total         Float
+  paymentMethod PaymentMethod
+  paid          Boolean       @default(false)
+  qrData        String?
+  branchId      String
+  branch        Branch        @relation(fields: [branchId], references: [id])
+  companyId     String
+  company       Company       @relation(fields: [companyId], references: [id])
+  lines         InvoiceLine[]
+  journalEntryId String?      @unique
+  deliveryOrder DeliveryOrder?
+  createdAt     DateTime      @default(now())
+
+  @@map("invoices")
+}
+
+model InvoiceLine {
+  id        String  @id @default(cuid())
+  invoiceId String
+  invoice   Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Float
+  total     Float
+
+  @@map("invoice_lines")
+}
+
+model Account {
+  id        String  @id @default(cuid())
+  code      String  @unique
+  nameAr    String
+  nameEn    String
+  type      String  // ASSET | LIABILITY | EQUITY | REVENUE | EXPENSE
+  parentId  String?
+  parent    Account? @relation("AccountTree", fields: [parentId], references: [id])
+  children  Account[] @relation("AccountTree")
+  companyId String?
+  lines     JournalEntryLine[]
+
+  @@map("accounts")
+}
+
+model JournalEntry {
+  id          String            @id @default(cuid())
+  number      String            @unique
+  description String
+  date        DateTime          @default(now())
+  companyId   String?
+  lines       JournalEntryLine[]
+  invoice     Invoice?
+
+  @@map("journal_entries")
+}
+
+model JournalEntryLine {
+  id              String       @id @default(cuid())
+  entryId         String
+  entry           JournalEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  accountId       String
+  account         Account      @relation(fields: [accountId], references: [id])
+  debit           Float        @default(0)
+  credit          Float        @default(0)
+  description     String?
+
+  @@map("journal_entry_lines")
+}
+
+model Supplier {
+  id            String   @id @default(cuid())
+  name          String
+  phone         String
+  email         String?
+  sector        Sector
+  products      String
+  city          String
+  location      String?
+  commercialReg String?
+  createdAt     DateTime @default(now())
+
+  quotes QuoteRequest[]
+
+  @@map("suppliers")
+}
+
+model QuoteRequest {
+  id         String   @id @default(cuid())
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+  message    String
+  requesterPhone String
+  status     String   @default("PENDING")
+  createdAt  DateTime @default(now())
+
+  @@map("quote_requests")
+}
+
+model Driver {
+  id        String  @id @default(cuid())
+  name      String
+  phone     String  @unique
+  vehicle   String
+  available Boolean @default(true)
+  lat       Float?
+  lng       Float?
+  orders    DeliveryOrder[]
+
+  @@map("drivers")
+}
+
+model DeliveryOrder {
+  id          String         @id @default(cuid())
+  invoiceId   String         @unique
+  invoice     Invoice        @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  driverId    String?
+  driver      Driver?        @relation(fields: [driverId], references: [id])
+  destLat     Float
+  destLng     Float
+  address     String
+  fee         Float          @default(0)
+  status      DeliveryStatus @default(PENDING)
+  createdAt   DateTime       @default(now())
+
+  @@map("delivery_orders")
+}
+
+model KycRequest {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  passportImg String
+  selfieImg   String
+  faceMatch   Float
+  docName     String?
+  docNumber   String?
+  nationality String?
+  birthDate   String?
+  expiryDate  String?
+  status      KycStatus @default(PENDING)
+  reviewedBy  String?
+  createdAt   DateTime  @default(now())
+
+  @@map("kyc_requests")
+}
+
+model QualityCheck {
+  id        String   @id @default(cuid())
+  productId String
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  result    String   // PASS | FAIL | EXPIRING
+  notes     String?
+  imageUrl  String?
+  checkedBy String?
+  createdAt DateTime @default(now())
+
+  @@map("quality_checks")
+}
+
+model InventoryCount {
+  id        String        @id @default(cuid())
+  type      InventoryType
+  branchId  String
+  status    String        @default("OPEN") // OPEN | SETTLED
+  lines     InventoryCountLine[]
+  createdAt DateTime      @default(now())
+
+  @@map("inventory_counts")
+}
+
+model InventoryCountLine {
+  id               String         @id @default(cuid())
+  countId          String
+  count            InventoryCount @relation(fields: [countId], references: [id], onDelete: Cascade)
+  productId        String
+  systemQty        Int
+  countedQty       Int
+  difference       Int
+  settled          Boolean        @default(false)
+
+  @@map("inventory_count_lines")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id])
+  action    String
+  entity    String
+  entityId  String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@map("activity_logs")
+}
+
+model Prescription {
+  id        String   @id @default(cuid())
+  doctorName String
+  patientName String
+  items     Json
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@map("prescriptions")
+}

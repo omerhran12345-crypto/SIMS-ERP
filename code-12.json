@@ -1,0 +1,14 @@
+{
+  "app": "SIMS",
+  "sectors": { "PHARMACY": "Pharmacies", "SUPERMARKET": "Supermarkets", "FACTORY": "Factories", "FURNITURE": "Furniture", "HARDWARE": "Hardware", "CLOTHING": "Clothing" },
+  "auth": { "register": "Register", "login": "Login", "forgot": "Forgot Password", "logout": "Logout", "fullName": "Full Name", "companyName": "Company Name", "country": "Country", "phone": "Phone (+249)", "email": "Email", "password": "Password", "license": "License PDF", "otp": "OTP Code" },
+  "kyc": { "title": "KYC Verification", "step1": "Upload Passport Image", "step2": "Live Selfie", "step3": "Face Match (>90%)", "step4": "Extracted Passport Data", "step5": "Awaiting Admin Approval", "match": "Match Score", "submit": "Submit for Review" },
+  "nav": { "dashboard": "Dashboard", "addProduct": "Add Product", "pos": "Point of Sale", "forecast": "Smart Forecast", "aiChat": "AI Chat", "inventory": "Inventory Count", "quality": "Quality Check", "accounting": "Accounting", "settings": "Settings", "partners": "Company Partners" },
+  "product": { "name": "Product Name", "category": "Category", "barcode": "Barcode", "generate": "Generate", "purchasePrice": "Purchase Price", "salePrice": "Sale Price", "quantity": "Quantity", "expiryDate": "Expiry Date", "image": "Image", "branch": "Branch", "save": "Save Product" },
+  "pos": { "search": "Search product...", "cart": "Cart", "total": "Total", "cash": "Cash", "card": "Card", "credit": "Credit", "customerName": "Customer Name", "customerPhone": "Customer Phone", "complete": "Complete Sale", "print": "Print", "hold": "Hold", "delivery": "Request Delivery" },
+  "dash": { "todaySales": "Today's Sales", "profit": "Today's Profit", "lowStock": "Low Stock Products", "chart30": "30-Day Sales Chart", "branchesMap": "Branches Map", "expiryAlerts": "Expiry Alerts" },
+  "common": { "print": "Print PDF", "export": "Export Excel", "save": "Save", "cancel": "Cancel", "actions": "Actions", "status": "Status", "date": "Date", "approve": "Approve", "reject": "Reject" },
+  "citizen": { "title": "Citizen Portal", "searchPlaceholder": "Search products across all companies...", "results": "Results", "call": "Call" },
+  "supplier": { "title": "Supplier Portal", "register": "Register Supplier", "requestQuote": "Request Quote" },
+  "support": { "title": "Support", "call": "Call Us", "email": "Email Us", "facebook": "Facebook" }
+}

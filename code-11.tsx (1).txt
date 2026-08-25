@@ -1,0 +1,100 @@
+        {/* الخطوة 0: القطاع */}
+        {step === 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SECTORS.map((s) => (
+              <button key={s} onClick={() => { setSector(s); setStep(1); }}
+                className={`rounded-xl border-2 p-4 font-bold hover:border-blue-500 ${sector === s ? "border-blue-600 bg-blue-50 dark:bg-blue-950" : "dark:border-gray-700"}`}>
+                {SECTOR_AR[s]}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* الخطوة 1: بيانات الشركة والمستخدم */}
+        {step === 1 && (
+          <div className="space-y-3">
+            <input placeholder="اسمك الكامل" value={form.fullName} onChange={(e) => setForm({ ...form, fullName: e.target.value })} className={inputCls} />
+            <input placeholder="اسم الشركة" value={form.companyName} onChange={(e) => setForm({ ...form, companyName: e.target.value })} className={inputCls} />
+            <input placeholder="الدولة" value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} className={inputCls} />
+            <input dir="ltr" placeholder="+249..." value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} className={inputCls} />
+            <input dir="ltr" type="email" placeholder="Email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} className={inputCls} />
+            <input dir="ltr" type="password" placeholder="Password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} className={inputCls} />
+            <button onClick={() => setStep(2)} className="w-full rounded-lg bg-blue-600 text-white p-3 font-bold">التالي →</button>
+          </div>
+        )}
+
+        {/* الخطوة 2: OTP */}
+        {step === 2 && (
+          <div className="space-y-3">
+            <input dir="ltr" maxLength={6} placeholder="OTP" value={otp} onChange={(e) => setOtp(e.target.value)} className={`${inputCls} text-center tracking-widest`} />
+            <button onClick={async () => {
+              try {
+                const res = await registerAction({ ...form, sector });
+                await verifyOtpAction(res.userId, otp);
+                setUserId(res.userId); setStep(3);
+              } catch { alert("OTP غير صحيح"); }
+            }} className="w-full rounded-lg bg-blue-600 text-white p-3 font-bold">تحقق</button>
+          </div>
+        )}
+
+        {/* الخطوة 3: رفع الرخصة */}
+        {step === 3 && (
+          <div className="space-y-3">
+            <label className={`${inputCls} cursor-pointer flex items-center justify-center`}>
+              📄 ارفع الرخصة التجارية (PDF)
+              <input type="file" accept=".pdf,image/*" hidden
+                onChange={(e) => setLicenseFile(e.target.files?.[0] ?? null)} />
+            </label>
+            {licenseFile && <p className="text-sm text-green-600">✅ {licenseFile.name}</p>}
+            <button onClick={() => setStep(4)} className="w-full rounded-lg bg-blue-600 text-white p-3 font-bold">التالي →</button>
+          </div>
+        )}
+
+        {/* الخطوة 4: KYC - جواز */}
+        {step === 4 && (
+          <div className="space-y-3">
+            <label className={`${inputCls} cursor-pointer flex items-center justify-center`}>
+              🛂 صورة الجواز
+              <input type="file" accept="image/*" hidden
+                onChange={(e) => e.target.files?.[0] && extractPassport(e.target.files[0])} />
+            </label>
+            {passportImg && <img id="passport-img" src={passportImg} alt="passport" className="h-40 mx-auto rounded-lg object-contain" />}
+            {ocrLoading && <p className="text-center text-blue-600 animate-pulse">⏳ جاري استخراج البيانات...</p>}
+            <button onClick={() => { startCamera(); setStep(5); }} disabled={!passportImg}
+              className="w-full rounded-lg bg-blue-600 text-white p-3 font-bold disabled:opacity-40">التالي →</button>
+          </div>
+        )}
+
+        {/* الخطوة 5: سيلفي + مطابقة الوجه */}
+        {step === 5 && (
+          <div className="space-y-3">
+            <video ref={videoRef} className="w-full rounded-lg" muted playsInline />
+            <canvas ref={canvasRef} hidden />
+            <button onClick={captureSelfie} className="w-full rounded-lg bg-purple-600 text-white p-3 font-bold">📸 التقاط سيلفي</button>
+            {selfieImg && faceMatch > 0 && (
+              <p className={`text-center font-bold ${faceMatch >= 70 ? "text-green-600" : "text-red-600"}`}>
+                نسبة المطابقة: {faceMatch}% {faceMatch >= 70 ? "✅" : "❌"}
+              </p>
+            )}
+            <button onClick={finalSubmit} disabled={faceMatch < 70}
+              className="w-full rounded-lg bg-green-600 text-white p-3 font-bold disabled:opacity-40">
+              🚀 إرسال طلب التوثيق
+            </button>
+          </div>
+        )}
+
+        {/* فورم البيانات المستخرجة - قابل للتعديل */}
+        {(step === 4 || step === 5) && doc.docNumber && (
+          <div className="border-t pt-4 mt-4 grid md:grid-cols-2 gap-3">
+            <h3 className="col-span-2 font-bold text-sm text-gray-500">بيانات الجواز المستخرجة (قابلة للتعديل):</h3>
+            <input placeholder="اسم الجواز" value={doc.docName} onChange={(e) => setDoc({ ...doc, docName: e.target.value })} className={inputCls} />
+            <input placeholder="رقم الجواز" value={doc.docNumber} onChange={(e) => setDoc({ ...doc, docNumber: e.target.value })} className={inputCls} />
+            <input placeholder="الجنسية" value={doc.nationality} onChange={(e) => setDoc({ ...doc, nationality: e.target.value })} className={inputCls} />
+            <input placeholder="تاريخ الميلاد" value={doc.birthDate} onChange={(e) => setDoc({ ...doc, birthDate: e.target.value })} className={inputCls} />
+            <input placeholder="تاريخ الانتهاء" value={doc.expiryDate} onChange={(e) => setDoc({ ...doc, expiryDate: e.target.value })} className={inputCls} />
+          </div>
+        )}
+      </div>
+    </main>
+  );
+}

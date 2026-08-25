@@ -1,0 +1,70 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useTranslations } from "next-intl";
+import { aiChatAction } from "@/app/actions/ai.actions";
+
+interface Msg { role: "user" | "assistant"; content: string; }
+
+export default function AiChatPage() {
+  const t = useTranslations("aiChat");
+  const [messages, setMessages] = useState<Msg[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const endRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
+
+  async function send(e: React.FormEvent) {
+    e.preventDefault();
+    if (!input.trim() || loading) return;
+    const msg = input.trim();
+    setInput("");
+    setMessages((m) => [...m, { role: "user", content: msg }]);
+    setLoading(true);
+    try {
+      const reply = await aiChatAction(msg);
+      setMessages((m) => [...m, { role: "assistant", content: reply }]);
+    } catch {
+      setMessages((m) => [...m, { role: "assistant", content: t("error") }]);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="flex flex-col h-[calc(100vh-4rem)] p-4">
+      <h1 className="text-2xl font-bold mb-4">🤖 {t("title")}</h1>
+
+      <div className="flex-1 overflow-y-auto space-y-3 rounded-xl bg-white dark:bg-gray-900 shadow p-4">
+        {messages.length === 0 && (
+          <p className="text-center text-gray-400 py-16">{t("placeholder")}</p>
+        )}
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+            <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+              m.role === "user"
+                ? "bg-blue-600 text-white rounded-br-sm"
+                : "bg-gray-100 dark:bg-gray-800 rounded-bl-sm"
+            }`}>
+              {m.content}
+            </div>
+          </div>
+        ))}
+        {loading && (
+          <div className="flex justify-start">
+            <div className="rounded-2xl bg-gray-100 dark:bg-gray-800 px-4 py-2 text-sm animate-pulse">...</div>
+          </div>
+        )}
+        <div ref={endRef} />
+      </div>
+
+      <form onSubmit={send} className="mt-3 flex gap-2">
+        <input value={input} onChange={(e) => setInput(e.target.value)}
+          placeholder={t("inputPlaceholder")}
+          className="flex-1 rounded-lg border p-3 dark:bg-gray-800 dark:border-gray-700" />
+        <button disabled={loading}
+          className="rounded-lg bg-blue-600 text-white px-6 font-bold hover:bg-blue-700 disabled:opacity-50">
+          ➤
+        </button>
+      </form>
+    </div>
+  );
+}

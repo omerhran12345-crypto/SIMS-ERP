@@ -1,0 +1,24 @@
+import type { Metadata } from "next";
+import "./globals.css";
+
+export const metadata: Metadata = {
+  title: process.env.NEXT_PUBLIC_APP_NAME || "SIMS",
+  description: "SIMS ERP - نظام تخطيط موارد متكامل",
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="ar" dir="rtl" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: `
+          const t = localStorage.getItem('sims_theme');
+          if (t === 'dark') document.documentElement.classList.add('dark');
+          const lang = localStorage.getItem('sims_lang') || 'ar';
+          document.documentElement.lang = lang;
+          document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+        `}} />
+      </head>
+      <body className="bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100">{children}</body>
+    </html>
+  );
+}

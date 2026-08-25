@@ -1,0 +1,103 @@
+"use client";
+import { QRCodeSVG } from "qrcode.react";
+
+export interface InvoicePrintData {
+  number: string;
+  date: string;
+  customerName?: string;
+  customerPhone?: string;
+  paymentMethod: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  companyName: string;
+  companyLogo?: string;
+  branchName: string;
+  lines: { productName: string; quantity: number; unitPrice: number; total: number }[];
+}
+
+export default function InvoicePrint({
+  invoice, size = "A4",
+}: { invoice: InvoicePrintData; size?: "A4" | "A5" }) {
+  const pmLabel: Record<string, string> = { CASH: "كاش / Cash", CARD: "بطاقة / Card", CREDIT: "آجل / Credit" };
+  return (
+    <div id="print-area"
+      className={`bg-white text-black p-8 mx-auto ${size === "A4" ? "w-[210mm] min-h-[297mm]" : "w-[148mm] min-h-[210mm]"}`}
+      dir="rtl">
+      {/* Header */}
+      <div className="flex items-center justify-between border-b-2 border-gray-800 pb-4">
+        <div className="flex items-center gap-3">
+          {invoice.companyLogo ? (
+            <img src={invoice.companyLogo} alt="logo" className="h-16 w-16 object-contain" />
+          ) : (
+            <div className="h-16 w-16 rounded-full bg-blue-700 flex items-center justify-center text-white font-bold text-xl">S</div>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold">{invoice.companyName}</h1>
+            <p className="text-sm text-gray-600">{invoice.branchName}</p>
+          </div>
+        </div>
+        <div className="text-left">
+          <h2 className="text-xl font-bold">فاتورة / INVOICE</h2>
+          <p className="text-sm">رقم: {invoice.number}</p>
+          <p className="text-sm">{new Date(invoice.date).toLocaleString("ar")}</p>
+        </div>
+      </div>
+
+      {/* Customer */}
+      <div className="mt-4 grid grid-cols-2 gap-4 text-sm">
+        <div>
+          <p><strong>العميل:</strong> {invoice.customerName || "-"}</p>
+          <p><strong>الهاتف:</strong> {invoice.customerPhone || "-"}</p>
+        </div>
+        <div>
+          <p><strong>الدفع:</strong> {pmLabel[invoice.paymentMethod]}</p>
+          <p><strong>الحالة:</strong> مدفوعة</p>
+        </div>
+      </div>
+
+      {/* Lines */}
+      <table className="mt-6 w-full border-collapse text-sm">
+        <thead>
+          <tr className="bg-gray-200">
+            <th className="border p-2">#</th>
+            <th className="border p-2">المنتج</th>
+            <th className="border p-2">الكمية</th>
+            <th className="border p-2">السعر</th>
+            <th className="border p-2">الإجمالي</th>
+          </tr>
+        </thead>
+        <tbody>
+          {invoice.lines.map((l, i) => (
+            <tr key={i}>
+              <td className="border p-2">{i + 1}</td>
+              <td className="border p-2">{l.productName}</td>
+              <td className="border p-2">{l.quantity}</td>
+              <td className="border p-2">{l.unitPrice.toFixed(2)}</td>
+              <td className="border p-2">{l.total.toFixed(2)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* Totals */}
+      <div className="mt-4 flex justify-between items-start">
+        <div className="text-center">
+          <QRCodeSVG value={`https://sims.sd/invoice/${invoice.number}`} size={90} />
+          <p className="text-xs mt-1">امسح للتحقق</p>
+        </div>
+        <div className="w-64 text-sm">
+          <div className="flex justify-between py-1"><span>المجموع الفرعي</span><span>{invoice.subtotal.toFixed(2)}</span></div>
+          <div className="flex justify-between py-1"><span>الضريبة</span><span>{invoice.tax.toFixed(2)}</span></div>
+          <div className="flex justify-between py-2 border-t-2 font-bold text-lg">
+            <span>الإجمالي</span><span>{invoice.total.toFixed(2)} SDG</span>
+          </div>
+        </div>
+      </div>
+
+      <p className="mt-8 text-center text-xs text-gray-500">
+        شكراً لتعاملكم معنا — SIMS ERP | الدعم: +249111396212
+      </p>
+    </div>
+  );
+}

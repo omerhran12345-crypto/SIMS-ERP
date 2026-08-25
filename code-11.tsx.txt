@@ -1,0 +1,75 @@
+"use client";
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+
+interface Result {
+  runningOut14: { name: string; daysLeft: number }[];
+  nextMonthForecast: number;
+  stagnant: { name: string; lastMoveDays: number }[];
+}
+
+export default function ForecastPage() {
+  const t = useTranslations("forecast");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+  const [aiSummary, setAiSummary] = useState("");
+
+  async function run() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/forecast", { method: "POST" });
+      const data = await res.json();
+      setResult(data.result);
+      setAiSummary(data.aiSummary);
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">📈 {t("title")}</h1>
+        <button onClick={run} disabled={loading}
+          className="rounded-lg bg-blue-600 text-white px-6 py-3 font-bold hover:bg-blue-700 disabled:opacity-50">
+          {loading ? "⏳ ..." : `🚀 ${t("run")}`}
+        </button>
+      </div>
+
+      {result && (
+        <>
+          <div className="grid md:grid-cols-3 gap-4">
+            <Card title={`⚠️ ${t("runningOut")}`} color="border-red-400">
+              {result.runningOut14.length === 0 && <p className="text-gray-400 text-sm">✅</p>}
+              {result.runningOut14.map((p) => (
+                <li key={p.name} className="flex justify-between text-sm py-1">
+                  <span>{p.name}</span><span className="text-red-600 font-bold">{p.daysLeft} {t("days")}</span>
+                </li>
+              ))}
+            </Card>
+            <Card title={`🔮 ${t("nextMonth")}`} color="border-blue-400">
+              <p className="text-3xl font-bold text-blue-600">{result.nextMonthForecast.toLocaleString()} SDG</p>
+            </Card>
+            <Card title={`💤 ${t("stagnant")}`} color="border-yellow-400">
+              {result.stagnant.length === 0 && <p className="text-gray-400 text-sm">✅</p>}
+              {result.stagnant.map((p) => (
+                <li key={p.name} className="flex justify-between text-sm py-1">
+                  <span>{p.name}</span><span className="text-yellow-600">{p.lastMoveDays} {t("days")}</span>
+                </li>
+              ))}
+            </Card>
+          </div>
+
+          {aiSummary && (
+            <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+              <h2 className="font-bold mb-2">🤖 AI Analysis</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiSummary}</p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function Card({ title, children, color }: { title: string
+
+> ⚠️ The response reached the length limit. Reply **continue** to get the rest.

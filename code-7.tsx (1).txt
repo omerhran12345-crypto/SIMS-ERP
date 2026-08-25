@@ -1,0 +1,32 @@
+"use client";
+import { useTranslations } from "next-intl";
+
+export default function SupportPage() {
+  const t = useTranslations("support");
+
+  const cards = [
+    { icon: "📞", title: t("call"), value: "+249111396212", href: "tel:+249111396212", color: "bg-green-600" },
+    { icon: "✉️", title: t("email"), value: "abrahim0111396212@gmail.com", href: "mailto:abrahim0111396212@gmail.com", color: "bg-blue-600" },
+    { icon: "📘", title: t("facebook"), value: t("facebookDesc"), href: "https://facebook.com", color: "bg-indigo-600" },
+  ];
+
+  return (
+    <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-gray-900 p-4">
+      <div className="w-full max-w-3xl">
+        <h1 className="text-3xl font-bold text-center mb-8">{t("title")}</h1>
+        <div className="grid md:grid-cols-3 gap-4">
+          {cards.map((c) => (
+            <a key={c.title} href={c.href} target="_blank" rel="noreferrer"
+              className="group rounded-2xl bg-white dark:bg-gray-900 shadow-lg p-6 text-center hover:-translate-y-1 transition-transform">
+              <div className={`mx-auto h-14 w-14 rounded-full ${c.color} flex items-center justify-center text-white text-2xl mb-4`}>
+                {c.icon}
+              </div>
+              <h2 className="font-bold text-lg mb-1">{c.title}</h2>
+              <p className="text-sm text-gray-500 break-all group-hover:text-blue-600" dir="ltr">{c.value}</p>
+            </a>
+          ))}
+        </div>
+      </div>
+    </main>
+  );
+}

@@ -1,0 +1,119 @@
+"use client";
+import { QRCodeSVG } from "qrcode.react";
+
+export interface InvoiceLine {
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+}
+export interface InvoicePrintData {
+  number: string;
+  date: string;
+  customerName?: string;
+  customerPhone?: string;
+  paymentMethod: string;
+  companyName: string;
+  branchName: string;
+  subtotal: number;
+  tax: number;
+  total: number;
+  lines: InvoiceLine[];
+}
+
+export default function InvoicePrint({ invoice, size = "A4" }: { invoice: InvoicePrintData; size?: "A4" | "A5" }) {
+  const w = size === "A5" ? "max-w-[420px]" : "max-w-[794px]";
+  const pad = size === "A5" ? "p-5" : "p-10";
+  const payLabel =
+    invoice.paymentMethod === "CASH" ? "نقدي / Cash" :
+    invoice.paymentMethod === "CARD" ? "بطاقة / Card" : "آجل / Credit";
+
+  return (
+    <div id="invoice-print" dir="rtl" className={`${w} mx-auto bg-white text-black rounded-lg shadow print:shadow-none print:rounded-none`} style={{ fontFamily: "Cairo, sans-serif" }}>
+      <style>{`
+        @media print {
+          body * { visibility: hidden; }
+          #invoice-print, #invoice-print * { visibility: visible; }
+          #invoice-print { position: absolute; inset: 0; margin: 0 auto; }
+        }
+      `}</style>
+
+      <div className={`${pad}`}>
+        {/* الهيدر */}
+        <header className="flex items-start justify-between border-b-2 border-gray-300 pb-4 mb-4">
+          <div className="flex items-center gap-3">
+            {/* الشعار */}
+            <img src="/logo.png" alt="logo" className="h-14 w-14 object-contain" onError={(e) => ((e.target as HTMLImageElement).style.display = "none")} />
+            <div>
+              <h1 className="text-xl font-extrabold">{invoice.companyName}</h1>
+              <p className="text-xs text-gray-500">SIMS ERP — نظام إدارة متكامل</p>
+            </div>
+          </div>
+          <div className="text-left">
+            <h2 className="text-lg font-bold">فاتورة ضريبية / Tax Invoice</h2>
+            <p className="text-sm"><strong>رقم:</strong> {invoice.number}</p>
+            <p className="text-sm"><strong>التاريخ:</strong> {new Date(invoice.date).toLocaleDateString()}</p>
+            <p className="text-sm"><strong>الفرع:</strong> {invoice.branchName}</p>
+          </div>
+        </header>
+
+        {/* العميل */}
+        {(invoice.customerName || invoice.customerPhone) && (
+          <section className="grid grid-cols-2 gap-4 mb-4 text-sm">
+            <p><strong>العميل:</strong> {invoice.customerName || "-"}</p>
+            <p><strong>الهاتف:</strong> {invoice.customerPhone || "-"}</p>
+          </section>
+        )}
+
+        {/* الجدول */}
+        <table className="w-full text-sm border-collapse mb-4">
+          <thead>
+            <tr className="bg-gray-100">
+              <th className="border p-2 text-right">#</th>
+              <th className="border p-2 text-right">المنتج</th>
+              <th className="border p-2 text-right">الكمية</th>
+              <th className="border p-2 text-right">سعر الوحدة</th>
+              <th className="border p-2 text-right">الإجمالي</th>
+            </tr>
+          </thead>
+          <tbody>
+            {invoice.lines.map((l, i) => (
+              <tr key={i}>
+                <td className="border p-2">{i + 1}</td>
+                <td className="border p-2">{l.productName}</td>
+                <td className="border p-2">{l.quantity}</td>
+                <td className="border p-2">{l.unitPrice.toFixed(2)}</td>
+                <td className="border p-2">{l.total.toFixed(2)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+
+        {/* الإجماليات + QR */}
+        <footer className="flex justify-between items-start gap-4">
+          <div className="space-y-1 text-sm min-w-[220px]">
+            <Row label="المجموع الفرعي:" value={invoice.subtotal.toFixed(2)} />
+            <Row label="ضريبة القيمة المضافة 15%:" value={invoice.tax.toFixed(2)} />
+            <div className="border-t pt-1">
+              <Row label="الإجمالي:" value={`${invoice.total.toFixed(2)} SDG`} bold />
+            </div>
+            <p className="text-xs text-gray-600 pt-1">طريقة الدفع: {payLabel}</p>
+          </div>
+          <QRCodeSVG value={`INV:invoice.number∣TOTAL:{invoice.number}|TOTAL:invoice.number∣TOTAL:{invoice.total.toFixed(2)}`} size={96} />
+        </footer>
+
+        <p className="text-center text-xs text-gray-400 mt-6 border-t pt-3">
+          شكراً لتعاملكم معنا — Thank you for your business
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function Row({ label, value, bold }: { label: string; value: string; bold?: boolean }) {
+  return (
+    <div className={`flex justify-between ${bold ? "font-bold text-base" : ""}`}>
+      <span>{label}</span><span>{value}</span>
+    </div>
+  );
+}

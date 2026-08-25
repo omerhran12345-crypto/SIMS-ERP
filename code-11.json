@@ -1,0 +1,14 @@
+{
+  "app": "سيمز SIMS",
+  "sectors": { "PHARMACY": "الصيدليات", "SUPERMARKET": "السوبرماركت", "FACTORY": "المصانع", "FURNITURE": "الأثاث", "HARDWARE": "المغالق", "CLOTHING": "الملابس" },
+  "auth": { "register": "تسجيل جديد", "login": "تسجيل دخول", "forgot": "نسيت كلمة المرور", "logout": "خروج", "fullName": "الاسم الرباعي", "companyName": "اسم الشركة", "country": "الدولة", "phone": "رقم الهاتف (+249)", "email": "البريد الإلكتروني", "password": "كلمة المرور", "license": "رخصة PDF", "otp": "رمز التحقق OTP" },
+  "kyc": { "title": "التوثيق KYC", "step1": "رفع صورة جواز السفر", "step2": "سيلفي مباشر", "step3": "مطابقة الوجه (>90%)", "step4": "بيانات الجواز المستخرجة", "step5": "بانتظار اعتماد الأدمن", "match": "نسبة المطابقة", "submit": "إرسال للمراجعة" },
+  "nav": { "dashboard": "لوحة المعلومات", "addProduct": "إضافة منتج", "pos": "بيع منتج", "forecast": "التنبؤ الذكي", "aiChat": "شات الذكاء الاصطناعي", "inventory": "الجرد", "quality": "الفحص والجودة", "accounting": "المحاسبة", "settings": "الضبط", "partners": "الربط بين الشركات" },
+  "product": { "name": "اسم المنتج", "category": "التصنيف", "barcode": "باركود", "generate": "توليد", "purchasePrice": "سعر الشراء", "salePrice": "سعر البيع", "quantity": "الكمية", "expiryDate": "تاريخ الانتهاء", "image": "الصورة", "branch": "الفرع", "save": "حفظ المنتج" },
+  "pos": { "search": "بحث عن منتج...", "cart": "السلة", "total": "الإجمالي", "cash": "كاش", "card": "بطاقة", "credit": "آجل", "customerName": "اسم العميل", "customerPhone": "هاتف العميل", "complete": "اتمام البيع", "print": "طباعة", "hold": "تعليق", "delivery": "طلب توصيل" },
+  "dash": { "todaySales": "مبيعات اليوم", "profit": "أرباح اليوم", "lowStock": "منتجات منخفضة", "chart30": "مبيعات 30 يوم", "branchesMap": "خريطة الفروع", "expiryAlerts": "تنبيهات انتهاء الصلاحية" },
+  "common": { "print": "طباعة PDF", "export": "تصدير Excel", "save": "حفظ", "cancel": "إلغاء", "actions": "إجراءات", "status": "الحالة", "date": "التاريخ", "approve": "اعتماد", "reject": "رفض" },
+  "citizen": { "title": "بوابة المواطن", "searchPlaceholder": "ابحث عن منتج في كل الشركات...", "results": "النتائج", "call": "اتصل" },
+  "supplier": { "title": "بوابة الموردين", "register": "تسجيل مورد", "requestQuote": "طلب عرض سعر" },
+  "support": { "title": "الدعم", "call": "اتصل بنا", "email": "راسلنا", "facebook": "فيسبوك" }
+}

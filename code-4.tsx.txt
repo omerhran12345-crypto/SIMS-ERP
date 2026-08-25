@@ -1,0 +1,155 @@
+"use client";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { useTranslations } from "next-intl";
+import * as faceapi from "@vladmandic/face-api";
+import Tesseract from "tesseract.js";
+import ThemeToggle from "@/components/ThemeToggle";
+import LangToggle from "@/components/LangToggle";
+import { registerAction, verifyOtpAction, submitKycAction } from "@/app/actions/auth.actions";
+
+const SECTORS = ["PHARMACY", "SUPERMARKET", "FACTORY", "FURNITURE", "HARDWARE", "CLOTHING"] as const;
+type Sector = typeof SECTORS[number];
+
+const SECTOR_AR: Record<Sector, string> = {
+  PHARMACY: "💊 صيدلية", SUPERMARKET: "🛒 سوبرماركت", FACTORY: "🏭 مصنع",
+  FURNITURE: "🛋️ أثاث", HARDWARE: "🔧 مغالق", CLOTHING: "👕 ملابس",
+};
+
+export default function RegisterPage() {
+  const t = useTranslations("register");
+  const [step, setStep] = useState(0);
+  const [sector, setSector] = useState<Sector>();
+  const [form, setForm] = useState({
+    fullName: "", companyName: "", country: "", phone: "", email: "", password: "",
+  });
+  const [otp, setOtp] = useState("");
+  const [userId, setUserId] = useState("");
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [passportImg, setPassportImg] = useState("");
+  const [doc, setDoc] = useState({ docName: "", docNumber: "", nationality: "", birthDate: "", expiryDate: "" });
+  const [ocrLoading, setOcrLoading] = useState(false);
+  const [selfieImg, setSelfieImg] = useState("");
+  const [faceMatch, setFaceMatch] = useState(0);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  const inputCls = "w-full rounded-lg border p-3 dark:bg-gray-800 dark:border-gray-700";
+
+  useEffect(() => {
+    return () => streamRef.current?.getTracks().forEach((tr) => tr.stop());
+  }, []);
+
+  async function startCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    streamRef.current = stream;
+    if (videoRef.current) {
+      videoRef.current.srcObject = stream;
+      await videoRef.current.play();
+    }
+  }
+
+  async function extractPassport(file: File) {
+    setOcrLoading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const img = reader.result as string;
+        setPassportImg(img);
+        const { data } = await Tesseract.recognize(img, "eng");
+        const txt = data.text;
+        // MRZ أو نص حر
+        const mrzLine = txt.split("\n").find((l) => /^[P<]/.test(l));
+        const numMatch = txt.match(/[A-Z0-9]{8,9}/g);
+        setDoc({
+          docName: mrzLine ? mrzLine.replace(/</g, " ").trim() : "",
+          docNumber: numMatch?.[0] ?? "",
+          nationality: numMatch?.[1] ?? "",
+          birthDate: (txt.match(/\d{2}[./]\d{2}[./]\d{4}/)?.[0]) ?? "",
+          expiryDate: "",
+        });
+      };
+      reader.readAsDataURL(file);
+    } finally { setOcrLoading(false); }
+  }
+
+  async function captureSelfie() {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri("/models"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("/models"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("/models"),
+    ]);
+    const canvas = canvasRef.current!;
+    canvas.width = videoRef.current!.videoWidth;
+    canvas.height = videoRef.current!.videoHeight;
+    canvas.getContext("2d")!.drawImage(videoRef.current!, 0, 0);
+
+    // كشف الوجه في السيلفي
+    const det = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions());
+    if (!det) { alert(t("noFace")); return; }
+    setSelfieImg(canvas.toDataURL());
+
+    // مطابقة مع صورة الجواز
+    const passportEl = document.getElementById("passport-img") as HTMLImageElement;
+    const d1 = await faceapi.detectSingleFace(passportEl!, new faceapi.TinyFaceDetectorOptions())
+      .withFaceDescriptor();
+    const d2 = det.withFaceDescriptor;
+    if (!d1) { setFaceMatch(50); return; }
+    const dist = faceapi.euclideanDistance(d1.descriptor, d2.descriptor);
+    setFaceMatch(Math.max(0, Math.round((1 - dist) * 100)));
+  }
+
+  async function finalSubmit() {
+    await submitKycAction(userId, {
+      licenseFile: licenseFile ? await toBase64(licenseFile) : undefined,
+      selfieImg,
+      faceScore: faceMatch,
+      docData: doc,
+    });
+    alert("✅ تم إرسال طلب التوثيق بنجاح");
+    location.href = "/login";
+  }
+
+  function toBase64(f: File): Promise<string> {
+    return new Promise((res) => {
+      const r = new FileReader();
+      r.onload = () => res(r.result as string);
+      r.readAsDataURL(f);
+    });
+  }
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-gray-900 p-4">
+      <ThemeToggle /><LangToggle />
+      <div className="max-w-xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-6 mt-8">
+        {/* مؤشر الخطوات */}
+        <div className="flex justify-between mb-6 text-xs">
+          {[t("sSector"), t("sInfo"), t("sOtp"), t("sLicense"), t("sPassport"), t("sSelfie")].map((l, i) => (
+            <div key={i} className={`flex-1 text-center ${i <= step ? "text-blue-600 font-bold" : "text-gray-400"}`}>
+              <div className={`mx-auto h-7 w-7 rounded-full mb-1 flex items-center justify-center ${i <= step ? "bg-blue-600 text-white" : "bg-gray-200 dark:bg-gray-800"}`}>{i + 1}</div>
+              {l}
+            </div>
+          ))}
+        </div>
+
+        {/* ===== الخطوة 1: القطاع ===== */}
+        {step === 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SECTORS.map((s) => (
+              <button key={s} onClick={() => { setSector(s); setStep(1); }}
+                className={`rounded-xl border-2 p-4 font-bold transition-colors hover:border-blue-500 ${
+                  sector === s ? "border-blue-600 bg-blue-50 dark:bg-blue-950" : "border-gray-200 dark:border-gray-700"
+                }`}>
+                <span className="block text-3xl mb-2">{SECTOR_AR[s].split(" ")[0]}</span>
+                {SECTOR_AR[s].split(" ")[1]}
+              </button>
+            ))}
+          </div>
+        )}
+        {/* ... بقية الخطوات كما في ردي السابق (خطوة 2 OTP، خطوة 3 رخصة PDF،
+             خطوة 4 جواز + Tesseract + فورم تعديل، خطوة 5 سيلفي + face-api) ... */}
+      </div>
+    </main>
+  );
+}

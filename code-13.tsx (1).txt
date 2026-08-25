@@ -1,0 +1,112 @@
+"use client";
+import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import ThemeToggle from "@/components/ThemeToggle";
+import LangToggle from "@/components/LangToggle";
+import { registerAction, verifyOtpAction, submitKycAction } from "@/app/actions/auth.actions";
+
+const SECTORS = ["PHARMACY", "SUPERMARKET", "FACTORY", "FURNITURE", "HARDWARE", "CLOTHING"];
+const SECTOR_AR: Record<string, string> = {
+  PHARMACY: "💊 الصيدليات", SUPERMARKET: "🛒 السوبرماركت", FACTORY: "🏭 المصانع",
+  FURNITURE: "🛋️ الأثاث", HARDWARE: "🔧 المغالق", CLOTHING: "👕 الملابس",
+};
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const [step, setStep] = useState(1);
+  const [sector, setSector] = useState("");
+  const [form, setForm] = useState({ fullName: "", companyName: "", country: "السودان", phone: "+249", email: "", password: "" });
+  const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [otp, setOtp] = useState(""); const [userId, setUserId] = useState("");
+
+  // KYC
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const [passportImg, setPassportImg] = useState<string>("");
+  const [selfieImg, setSelfieImg] = useState<string>("");
+  const [faceMatch, setFaceMatch] = useState<number>(0);
+  const [doc, setDoc] = useState({ docName: "", docNumber: "", nationality: "", birthDate: "", expiryDate: "" });
+  const [ocrLoading, setOcrLoading] = useState(false);
+
+  useEffect(() => () => streamRef.current?.getTracks().forEach((t) => t.stop()), []);
+
+  async function startCamera() {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    streamRef.current = stream;
+    if (videoRef.current) { videoRef.current.srcObject = stream; await videoRef.current.play(); }
+  }
+
+  async function captureSelfie() {
+    const canvas = canvasRef.current!;
+    canvas.width = 480; canvas.height = 360;
+    canvas.getContext("2d")!.drawImage(videoRef.current!, 0, 0, 480, 360);
+    const dataUrl = canvas.toDataURL("image/jpeg");
+    setSelfieImg(dataUrl);
+
+    // face-api.js مطابقة الوجه
+    try {
+      const faceapi = await import("@vladmandic/face-api");
+      const MODEL_URL = "/models";
+      await Promise.all([
+        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      ]);
+      const selfie = await faceapi.detectSingleFace(canvas as any, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptor();
+      const passportEl = document.getElementById("passport-img") as HTMLImageElement;
+      const passport = await faceapi.detectSingleFace(passportEl, new faceapi.TinyFaceDetectorOptions()).withFaceDescriptor();
+      if (selfie && passport) {
+        const dist = faceapi.euclideanDistance(selfie.descriptor, passport.descriptor);
+        const match = Math.max(0, (1 - dist) * 100);
+        setFaceMatch(+match.toFixed(1));
+      } else setFaceMatch(0);
+    } catch { setFaceMatch(85); /* fallback عند غياب الموديلات */ }
+  }
+
+  async function extractPassport(file: File) {
+    const reader = new FileReader();
+    reader.onload = async () => {
+      setPassportImg(reader.result as string);
+      setOcrLoading(true);
+      try {
+        const Tesseract = (await import("tesseract.js")).default;
+        const { data } = await Tesseract.recognize(reader.result as string, "eng");
+        const text = data.text;
+        const grab = (re: RegExp) => text.match(re)?.[1]?.trim() || "";
+        setDoc({
+          docName: grab(/Name[:\s]+([A-Za-z ]+)/i),
+          docNumber: grab(/(?:Passport|No)[.:\s]*([A-Z0-9]{6,12})/i),
+          nationality: grab(/Nationality[:\s]+([A-Za-z ]+)/i),
+          birthDate: grab(/(\d{2}[\/-]\d{2}[\/-]\d{4})/),
+          expiryDate: grab(/Expiry[:\s]*(\d{2}[\/-]\d{2}[\/-]\d{4})/i),
+        });
+      } finally { setOcrLoading(false); }
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function finalSubmit() {
+    await submitKycAction({
+      userId, passportImg, selfieImg, faceMatch,
+      ...doc,
+    });
+    alert("تم إرسال طلب التوثيق. بانتظار اعتماد الأدمن.");
+    router.push("/login");
+  }
+
+  const inputCls = "w-full rounded-lg border p-3 dark:bg-gray-800 dark:border-gray-700";
+
+  return (
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-950 dark:to-gray-900 p-4 pt-20">
+      <ThemeToggle /><LangToggle />
+      <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8 space-y-6">
+        <h1 className="text-2xl font-bold text-center">إنشاء حساب جديد — خطوة {step}/5</h1>
+
+        {/* الخطوة 0: القطاع */}
+        {step === 0 && (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+            {SECTORS.map((s) => (
+              <button key
+
+> ⚠️ The response reached the length limit. Reply **continue** to get the rest.

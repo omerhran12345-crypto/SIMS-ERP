@@ -1,0 +1,102 @@
+"use client";
+import { useState } from "react";
+import { useTranslations } from "next-intl";
+import { getForecastAction } from "@/app/actions/ai.actions";
+
+interface Result {
+  runningOut14: { name: string; daysLeft: number }[];
+  nextMonthForecast: number;
+  stagnant: { name: string; lastMoveDays: number }[];
+}
+
+export default function ForecastPage() {
+  const t = useTranslations("forecast");
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<Result | null>(null);
+  const [aiSummary, setAiSummary] = useState("");
+
+  async function run() {
+    setLoading(true);
+    try {
+      const r = await getForecastAction();
+      setResult(r.result);
+      setAiSummary(r.aiSummary ?? "");
+    } catch (e: any) {
+      alert(e.message ?? t("error"));
+    } finally { setLoading(false); }
+  }
+
+  return (
+    <div className="space-y-6 p-6">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h1 className="text-2xl font-bold">📈 {t("title")}</h1>
+        <button onClick={run} disabled={loading}
+          className="rounded-lg bg-blue-600 text-white px-6 py-3 font-bold hover:bg-blue-700 disabled:opacity-50">
+          {loading ? "⏳ ..." : `🚀 ${t("run")}`}
+        </button>
+      </div>
+
+      {result && (
+        <>
+          <div className="grid md:grid-cols-3 gap-4">
+
+            <Card title={`⚠️ ${t("runningOut")}`} color="border-red-400">
+              {result.runningOut14.length === 0 && <p className="text-gray-400 text-sm py-4">✅ {t("allGood")}</p>}
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                {result.runningOut14.map((p) => (
+                  <li key={p.name} className="flex justify-between text-sm py-2">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-red-600 font-bold whitespace-nowrap">{p.daysLeft} {t("days")}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+
+            <Card title={`🔮 ${t("nextMonth")}`} color="border-blue-400">
+              <p className="text-center py-6">
+                <span className="block text-sm text-gray-500 mb-2">{t("expectedSales")}</span>
+                <span className="text-3xl font-extrabold text-blue-600">
+                  {result.nextMonthForecast.toLocaleString()} SDG
+                </span>
+              </p>
+            </Card>
+
+            <Card title={`💤 ${t("stagnant")}`} color="border-yellow-400">
+              {result.stagnant.length === 0 && <p className="text-gray-400 text-sm py-4">✅ {t("allMoving")}</p>}
+              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+                {result.stagnant.map((p) => (
+                  <li key={p.name} className="flex justify-between text-sm py-2">
+                    <span className="truncate">{p.name}</span>
+                    <span className="text-yellow-600 font-semibold whitespace-nowrap">{p.lastMoveDays} {t("days")}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          </div>
+
+          {aiSummary && (
+            <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-5">
+              <h2 className="font-bold mb-2">🤖 {t("aiAnalysis")}</h2>
+              <p className="whitespace-pre-wrap text-sm leading-relaxed">{aiSummary}</p>
+            </div>
+          )}
+        </>
+      )}
+
+      {!result && !loading && (
+        <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-16 text-center text-gray-400">
+          👆 {t("hint")}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Card({ title, children, color }: { title: string; children: React.ReactNode; color: string }) {
+  return (
+    <div className={`rounded-xl bg-white dark:bg-gray-900 shadow border-t-4 ${color} p-5`}>
+      <h2 className="font-bold mb-3">{title}</h2>
+      {children}
+    </div>
+  );
+}

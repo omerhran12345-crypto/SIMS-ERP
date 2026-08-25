@@ -1,0 +1,178 @@
+"use client";
+import { useEffect, useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
+import { GoogleMap, LoadScript, MarkerF } from "@react-google-maps/api";
+import InvoicePrint, { InvoicePrintData } from "@/components/ui/InvoicePrint";
+import PrintButton from "@/components/PrintButton";
+import { completeSaleAction, requestDeliveryAction } from "@/app/actions/invoice.actions";
+
+interface P { id: string; name: string; salePrice: number; quantity: number; imageUrl?: string; }
+interface CartItem extends P { qty: number; }
+
+export default function PosPage() {
+  const t = useTranslations("pos");
+  const [products, setProducts] = useState<P[]>([]);
+  const [search, setSearch] = useState("");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [payment, setPayment] = useState<"CASH" | "CARD" | "CREDIT">("CASH");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [invoice, setInvoice] = useState<InvoicePrintData | null>(null);
+  const [showDelivery, setShowDelivery] = useState(false);
+  const [dest, setDest] = useState({ lat: 15.5, lng: 32.55 });
+  const [address, setAddress] = useState("");
+  const [processing, setProcessing] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/products?all=1").then((r) => r.json()).then(setProducts);
+  }, []);
+
+  const filtered = useMemo(
+    () => products.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())),
+    [products, search]
+  );
+
+  const total = cart.reduce((s, c) => s + c.salePrice * c.qty, 0);
+  const tax = +(total * 0.15).toFixed(2);
+
+  function addToCart(p: P) {
+    setCart((c) => {
+      const ex = c.find((x) => x.id === p.id);
+      if (ex) return c.map((x) => x.id === p.id ? { ...x, qty: Math.min(x.qty + 1, p.quantity) } : x);
+      return [...c, { ...p, qty: 1 }];
+    });
+  }
+  function changeQty(id: string, delta: number) {
+    setCart((c) => c.map((x) => x.id === id ? { ...x, qty: Math.max(1, x.qty + delta) } : x));
+  }
+
+  async function completeSale() {
+    if (!cart.length) return;
+    setProcessing(true);
+    try {
+      const inv = await completeSaleAction({
+        items: cart.map((c) => ({ productId: c.id, quantity: c.qty })),
+        customerName: customerName || undefined, customerPhone: customerPhone || undefined,
+        paymentMethod: payment,
+      });
+      setInvoice({
+        number: inv.number, date: inv.createdAt, customerName, customerPhone,
+        paymentMethod: inv.paymentMethod, subtotal: inv.subtotal, tax: inv.tax, total: inv.total,
+        companyName: "SIMS", branchName: "-", 
+        lines: inv.lines.map((l: any) => ({ productName: l.product.name, quantity: l.quantity, unitPrice: l.unitPrice, total: l.total })),
+      });
+      setCart([]);
+    } catch (e: any) { alert(e.message); }
+    finally { setProcessing(false); }
+  }
+
+  async function orderDelivery() {
+    if (!invoice) return;
+    await requestDeliveryAction(invoice.number ? (await fetch(`/api/invoices/${invoice.number}`).then(r=>r.json())).id : "", dest.lat, dest.lng, address);
+    setShowDelivery(false);
+    alert("🚚 تم إرسال طلب التوصيل لأقرب موصل");
+  }
+
+  return (
+    <div className="grid lg:grid-cols-[1fr_400px] gap-4 p-4">
+      {/* اليسار: بحث + شبكة منتجات */}
+      <div>
+        <input value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder={t("search")}
+          className="w-full rounded-lg border p-3 mb-4 dark:bg-gray-800 dark:border-gray-700" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 max-h-[70vh] overflow-y-auto">
+          {filtered.map((p) => (
+            <button key={p.id} onClick={() => addToCart(p)} disabled={p.quantity === 0}
+              className="rounded-xl bg-white dark:bg-gray-900 shadow p-3 text-right hover:ring-2 ring-blue-500 disabled:opacity-40">
+              {p.imageUrl && <img src={p.imageUrl} alt="" className="h-20 w-full object-cover rounded-lg mb-2" />}
+              <p className="font-semibold text-sm truncate">{p.name}</p>
+              <p className="text-blue-600 font-bold">{p.salePrice.toFixed(0)} SDG</p>
+              <p className="text-xs text-gray-400">📦 {p.quantity}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* اليمين: السلة */}
+      <div className="rounded-xl bg-white dark:bg-gray-900 shadow p-4 flex flex-col h-fit sticky top-4">
+        <h2 className="font-bold text-lg mb-3">🛒 {t("cart")}</h2>
+        <div className="space-y-2 flex-1 overflow-y-auto max-h-64">
+          {cart.map((c) => (
+            <div key={c.id} className="flex items-center justify-between rounded-lg bg-gray-50 dark:bg-gray-800 p-2 text-sm">
+              <span className="truncate flex-1">{c.name}</span>
+              <div className="flex items-center gap-2 mx-2">
+                <button onClick={() => changeQty(c.id, -1)} className="h-7 w-7 rounded bg-red-100 text-red-600">−</button>
+                <span className="w-6 text-center font-bold">{c.qty}</span>
+                <button onClick={() => changeQty(c.id, 1)} className="h-7 w-7 rounded bg-green-100 text-green-600">+</button>
+              </div>
+              <span className="font-semibold w-20 text-left">{(c.salePrice * c.qty).toFixed(0)}</span>
+            </div>
+          ))}
+          {!cart.length && <p className="text-gray-400 text-sm text-center py-8">{t("cartEmpty")}</p>}
+        </div>
+
+        <div className="mt-3 space-y-2 text-sm">
+          <input placeholder={t("customerName")} value={customerName} onChange={(e) => setCustomerName(e.target.value)}
+            className="w-full rounded-lg border p-2 dark:bg-gray-800 dark:border-gray-700" />
+          <input placeholder={t("customerPhone")} value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} dir="ltr"
+            className="w-full rounded-lg border p-2 dark:bg-gray-800 dark:border-gray-700" />
+          <div className="flex gap-2">
+            {(["CASH", "CARD", "CREDIT"] as const).map((m) => (
+              <button key={m} onClick={() => setPayment(m)}
+                className={`flex-1 rounded-lg p-2 text-xs font-bold ${payment === m ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800"}`}>
+                {t(m.toLowerCase())}
+              </button>
+            ))}
+          </div>
+          <div className="border-t pt-2 space-y-1">
+            <div className="flex justify-between"><span>{t("subtotal")}</span><span>{total.toFixed(2)}</span></div>
+            <div className="flex justify-between"><span>VAT 15%</span><span>{tax.toFixed(2)}</span></div>
+            <div className="flex justify-between font-bold text-lg"><span>{t("total")}</span><span>{(total + tax).toFixed(2)}</span></div>
+          </div>
+        </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={completeSale} disabled={!cart.length || processing}
+            className="col-span-2 rounded-lg bg-green-600 text-white p-3 font-bold hover:bg-green-700 disabled:opacity-50">
+            ✅ {t("complete")}
+          </button>
+          {invoice && <>
+            <PrintButton label={`🖨️ ${t("print")}`} />
+            <button onClick={() => setShowDelivery(true)} className="rounded-lg bg-orange-500 text-white p-2 text-sm font-bold">
+              🚚 {t("delivery")}
+            </button>
+          </>}
+        </div>
+      </div>
+
+      {/* Dialog التوصيل */}
+      {showDelivery && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setShowDelivery(false)}>
+          <div className="bg-white dark:bg-gray-900 rounded-xl p-5 w-full max-w-lg space-y-3" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-bold text-lg">🚚 {t("delivery")}</h3>
+            <LoadScript googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!}>
+              <GoogleMap mapContainerStyle={{ width: "100%", height: 250 }} center={dest} zoom={13}
+                onClick={(e) => setDest({ lat: e.latLng!.lat(), lng: e.latLng!.lng() })}>
+                <MarkerF position={dest} />
+              </GoogleMap>
+            </LoadScript>
+            <input placeholder="العنوان / Address" value={address} onChange={(e) => setAddress(e.target.value)}
+              className="w-full rounded-lg border p-2 dark:bg-gray-800 dark:border-gray-700" />
+            <button onClick={orderDelivery} className="w-full rounded-lg bg-orange-500 text-white p-3 font-bold">
+              📍 اطلب أقرب موصل / Request Nearest Driver
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* طباعة الفاتورة */}
+      {invoice && (
+        <div className="fixed inset-0 z-50 overflow-auto bg-black/60 p-4" onClick={() => setInvoice(null)}>
+          <div onClick={(e) => e.stopPropagation()}>
+            <InvoicePrint invoice={invoice} size="A5" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
